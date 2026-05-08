@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#b45309">
+  <meta name="description" content="Dashboard del Mundial 2026 — partidos por grupos, favoritos y exportación a calendario (.ics).">
+  <title>Mundial 2026 · Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #fafaf9;
+      --card-bg: #ffffff;
+      --card-starred: #fef9f0;
+      --border: #e8e5e0;
+      --text-primary: #1a1917;
+      --text-secondary: #57534e;
+      --text-muted: #a8a29e;
+      --accent: #b45309;
+      --accent-light: #fef3c7;
+      --gold: #d97706;
+      --group-badge: #f5f0eb;
+      --danger: #dc2626;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0c0a09;
+        --card-bg: #1c1917;
+        --card-starred: #1c1710;
+        --border: #292524;
+        --text-primary: #fafaf9;
+        --text-secondary: #a8a29e;
+        --text-muted: #78716c;
+        --accent: #f59e0b;
+        --accent-light: #451a03;
+        --gold: #f59e0b;
+        --group-badge: #292524;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { background: var(--bg); font-family: 'DM Sans', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    input::placeholder { color: var(--text-muted); }
+    button { font-family: inherit; }
+    button:active { transform: scale(0.97); }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .match-enter { animation: fadeIn 0.25s ease both; }
+    /* Splash while Babel loads */
+    #splash {
+      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: var(--bg); color: var(--accent); z-index: 999;
+      font-family: 'Instrument Serif', serif; font-size: 28px; letter-spacing: 0.02em;
+    }
+    #splash::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-left: 10px; animation: pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+  </style>
+</head>
+<body>
+  <template id="__bundler_thumbnail" data-bg-color="#fafaf9">
+    <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+      <rect width="1200" height="800" fill="#fafaf9"/>
+      <g transform="translate(600 400)">
+        <circle r="180" fill="none" stroke="#b45309" stroke-width="12"/>
+        <path d="M0 -180 L52 -56 L180 -56 L78 24 L114 148 L0 72 L-114 148 L-78 24 L-180 -56 L-52 -56 Z"
+              fill="#b45309"/>
+      </g>
+      <text x="600" y="660" text-anchor="middle" font-family="Instrument Serif, serif" font-size="64" fill="#1a1917">Mundial 2026</text>
+    </svg>
+  </template>
+  <div id="splash">Mundial 2026</div>
+  <div id="root"></div>
+
+  <!-- React 18 (pinned) -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <!-- Data + App -->
+  <script src="src/data.js"></script>
+  <script type="text/babel" src="src/app.jsx"></script>
+  <script>
+    // Hide splash once React mounts something
+    const obs = new MutationObserver(() => {
+      const root = document.getElementById("root");
+      if (root && root.children.length > 0) {
+        const s = document.getElementById("splash");
+        if (s) { s.style.transition = "opacity 0.25s ease"; s.style.opacity = "0"; setTimeout(() => s.remove(), 250); }
+        obs.disconnect();
+      }
+    });
+    obs.observe(document.getElementById("root"), { childList: true });
+  </script>
+</body>
+</html>
