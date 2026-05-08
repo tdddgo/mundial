@@ -26,7 +26,7 @@ const LayoutGrid = (p) => <Icon {...p}><rect x="3" y="3" width="7" height="7"/><
 const CalIcon = Calendar;
 
 // ─── Pull globals from data.js ────────────────────────────────────
-const { MATCHES, GROUPS, PHASES, PHASE_SHORT, TZ_OPTIONS, FLAG_MAP, COUNTRY_MAP } = window;
+const { MATCHES, GROUPS, PHASES, PHASE_SHORT, TZ_OPTIONS, FLAG_MAP, COUNTRY_MAP, TEAM_SLUGS } = window;
 
 // ─── Utilities ────────────────────────────────────────────────────
 function getDeviceOffset() {
@@ -311,14 +311,17 @@ function WorldCupDashboard() {
 
   const starredMatches = useMemo(() => MATCHES.filter((m) => starred.has(m.id)), [starred]);
 
-  // Webcal subscription URL — works once deployed (GitHub Pages, etc.)
-  const subscribeURL = useMemo(() => {
+  // Webcal subscription URLs — work once deployed (GitHub Pages, etc.)
+  const subBase = useMemo(() => {
     if (typeof window === "undefined") return null;
     const { protocol, host, pathname } = window.location;
     if (protocol === "file:" || !host) return null;
     const base = pathname.endsWith("/") ? pathname : pathname.replace(/[^/]*$/, "");
-    return `webcal://${host}${base}mundial.ics`;
+    return `webcal://${host}${base}`;
   }, []);
+  const subscribeURL = subBase ? `${subBase}mundial.ics` : null;
+  const teamSubURL = (team) => subBase && TEAM_SLUGS[team] ? `${subBase}ics/team-${TEAM_SLUGS[team]}.ics` : null;
+  const groupSubURL = (g) => subBase ? `${subBase}ics/group-${g}.ics` : null;
 
   const downloadICS = async () => {
     if (starredMatches.length === 0) return;
@@ -518,14 +521,14 @@ function WorldCupDashboard() {
       </div>
 
       {starredMatches.length > 0 && (
-        <button onClick={downloadICS} style={{
+        <button onClick={() => setAddingMatch(starredMatches)} style={{
           width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
           background: "var(--accent)", color: "#fff", border: "none", borderRadius: 10,
           padding: "12px 16px", cursor: "pointer", fontSize: 13, fontWeight: 600,
-          marginBottom: 20, boxShadow: "0 2px 8px rgba(180,83,9,0.2)",
+          marginBottom: 20, boxShadow: "0 2px 8px rgba(180,83,9,0.2)", fontFamily: "inherit",
         }}>
-          <Calendar size={16}/>
-          Descargar {starredMatches.length} partido{starredMatches.length !== 1 ? "s" : ""} (.ics)
+          <Plus size={16}/>
+          Agregar {starredMatches.length} favorito{starredMatches.length !== 1 ? "s" : ""} al calendario
           <Bell size={14} style={{ opacity: 0.7 }}/>
         </button>
       )}
@@ -594,27 +597,69 @@ function WorldCupDashboard() {
         ))
       )}
 
-      {/* Calendar action sheet */}
+      {/* Calendar action sheet — single match or array of matches */}
       {addingMatch && (() => {
-        const links = buildCalendarLinks(addingMatch);
+        const isMulti = Array.isArray(addingMatch);
+        const matches = isMulti ? addingMatch : [addingMatch];
+        const single = !isMulti ? addingMatch : null;
+        const links = single ? buildCalendarLinks(single) : null;
+
         const open = (url) => { window.open(url, "_blank", "noopener"); setAddingMatch(null); };
-        const downloadIcs = () => {
-          const ics = singleMatchICS(addingMatch);
+        const downloadIcs = async () => {
+          const ics = isMulti ? generateICS(matches, tzOffset) : singleMatchICS(single);
           const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+          const fname = isMulti ? "mundial_2026_favoritos.ics" : `${single.home}-vs-${single.away}.ics`.replace(/\s+/g, "_");
+          const file = new File([blob], fname, { type: "text/calendar" });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try { await navigator.share({ files: [file], title: "Mundial 2026" }); setAddingMatch(null); return; }
+            catch (e) { if (e.name === "AbortError") { setAddingMatch(null); return; } }
+          }
           const a = document.createElement("a");
-          a.href = URL.createObjectURL(blob);
-          a.download = `${addingMatch.home}-vs-${addingMatch.away}.ics`.replace(/\s+/g, "_");
+          a.href = URL.createObjectURL(blob); a.download = fname;
           document.body.appendChild(a); a.click();
           setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 100);
           setAddingMatch(null);
         };
-        const opts = [
-          { label: "Google Calendar", onClick: () => open(links.google), color: "#4285F4" },
-          { label: "Apple Calendar / iCloud", onClick: downloadIcs, color: "#1a1917" },
-          { label: "Outlook", onClick: () => open(links.outlook), color: "#0078D4" },
-          { label: "Yahoo", onClick: () => open(links.yahoo), color: "#6001D2" },
-          { label: "Descargar .ics", onClick: downloadIcs, color: "var(--text-secondary)", outline: true },
-        ];
+
+        // For favorites: derive unique teams + groups present in selection
+        const favTeams = isMulti
+          ? [...new Set(matches.flatMap(m => [m.home, m.away]).filter(t => TEAM_SLUGS && TEAM_SLUGS[t]))]
+          : [];
+        const favGroups = isMulti
+          ? [...new Set(matches.map(m => m.group).filter(Boolean))].sort()
+          : [];
+        const teamSubs = subBase ? favTeams.slice(0, 6).map(t => ({
+          label: `Suscribir a ${FLAG_MAP[t] || ""} ${t}`.trim(),
+          onClick: () => open(teamSubURL(t)),
+          color: "#1a1917", outline: true,
+          hint: "Todos sus partidos del Mundial",
+        })) : [];
+        const groupSubs = subBase ? favGroups.slice(0, 4).map(g => ({
+          label: `Suscribir al Grupo ${g}`,
+          onClick: () => open(groupSubURL(g)),
+          color: "#1a1917", outline: true,
+          hint: "Los 6 partidos del grupo",
+        })) : [];
+
+        const opts = isMulti
+          ? [
+              { label: `Descargar ${matches.length} partidos (.ics)`, onClick: downloadIcs, color: "var(--accent)", hint: "Compatible con Apple, Google y Outlook" },
+              ...(subscribeURL ? [{ label: "Suscribir al calendario completo", onClick: () => open(subscribeURL), color: "#1a1917", hint: "Los 104 partidos, sincronizados" }] : []),
+              ...teamSubs,
+              ...groupSubs,
+            ]
+          : [
+              { label: "Google Calendar", onClick: () => open(links.google), color: "#4285F4" },
+              { label: "Apple Calendar / iCloud", onClick: downloadIcs, color: "#1a1917" },
+              { label: "Outlook", onClick: () => open(links.outlook), color: "#0078D4" },
+              { label: "Yahoo", onClick: () => open(links.yahoo), color: "#6001D2" },
+              { label: "Descargar .ics", onClick: downloadIcs, color: "var(--text-secondary)", outline: true },
+            ];
+
+        const title = isMulti
+          ? `${matches.length} partido${matches.length !== 1 ? "s" : ""} favorito${matches.length !== 1 ? "s" : ""}`
+          : `${FLAG_MAP[single.home] || ""} ${single.home} vs ${single.away} ${FLAG_MAP[single.away] || ""}`;
+
         return (
           <div onClick={() => setAddingMatch(null)} style={{
             position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
@@ -632,17 +677,20 @@ function WorldCupDashboard() {
                 Agregar al calendario
               </div>
               <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", marginBottom: 16 }}>
-                {FLAG_MAP[addingMatch.home] || ""} {addingMatch.home} vs {addingMatch.away} {FLAG_MAP[addingMatch.away] || ""}
+                {title}
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {opts.map((o, i) => (
                   <button key={i} onClick={o.onClick} style={{
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
                     background: o.outline ? "transparent" : o.color, color: o.outline ? o.color : "#fff",
                     border: o.outline ? "1px solid var(--border)" : "none",
                     borderRadius: 10, padding: "12px 16px",
                     cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "inherit",
-                  }}>{o.label}</button>
+                  }}>
+                    <span>{o.label}</span>
+                    {o.hint && <span style={{ fontSize: 10, fontWeight: 400, opacity: 0.85 }}>{o.hint}</span>}
+                  </button>
                 ))}
                 <button onClick={() => setAddingMatch(null)} style={{
                   background: "transparent", border: "none", color: "var(--text-muted)",
