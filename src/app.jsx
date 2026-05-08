@@ -20,6 +20,8 @@ const Trophy = (p) => <Icon {...p}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path
 const X = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
 const Check = (p) => <Icon {...p}><polyline points="20 6 9 17 4 12"/></Icon>;
 const Bell = (p) => <Icon {...p}><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></Icon>;
+const Plus = (p) => <Icon {...p}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Icon>;
+const Rss = (p) => <Icon {...p}><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></Icon>;
 const LayoutGrid = (p) => <Icon {...p}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></Icon>;
 const CalIcon = Calendar;
 
@@ -51,6 +53,40 @@ function formatDate(dateStr) {
   const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
   return `${days[d.getUTCDay()]} ${d.getUTCDate()} ${months[d.getUTCMonth()]}`;
 }
+// Convert ET (GMT-4) match time to UTC Date object
+function matchToUTC(m) {
+  const [h, mi] = m.time.split(":").map(Number);
+  return new Date(Date.UTC(
+    +m.date.slice(0,4), +m.date.slice(5,7)-1, +m.date.slice(8,10),
+    h + 4, mi, 0
+  ));
+}
+function fmtUTC(d) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}${p(d.getUTCMonth()+1)}${p(d.getUTCDate())}T${p(d.getUTCHours())}${p(d.getUTCMinutes())}00Z`;
+}
+function buildCalendarLinks(m) {
+  const start = matchToUTC(m);
+  const end = new Date(start.getTime() + 2*60*60*1000);
+  const startStr = fmtUTC(start);
+  const endStr = fmtUTC(end);
+  const title = `⚽ ${m.home} vs ${m.away}`;
+  const loc = `${m.venue}, ${m.city}`;
+  const phase = PHASE_SHORT[m.phase] || m.phase;
+  const desc = `${phase}${m.group ? ` - Grupo ${m.group}` : ""} | FIFA World Cup 2026`;
+  const enc = encodeURIComponent;
+  return {
+    google: `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${enc(title)}&dates=${startStr}/${endStr}&location=${enc(loc)}&details=${enc(desc)}`,
+    outlook: `https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&subject=${enc(title)}&startdt=${start.toISOString()}&enddt=${end.toISOString()}&location=${enc(loc)}&body=${enc(desc)}`,
+    yahoo: `https://calendar.yahoo.com/?v=60&title=${enc(title)}&st=${startStr}&et=${endStr}&desc=${enc(desc)}&in_loc=${enc(loc)}`,
+  };
+}
+function singleMatchICS(m) {
+  const start = matchToUTC(m);
+  const end = new Date(start.getTime() + 2*60*60*1000);
+  const phase = PHASE_SHORT[m.phase] || m.phase;
+  return `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//WC2026//ES\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\nUID:wc2026-match-${m.id}@dashboard\r\nDTSTAMP:${fmtUTC(new Date())}\r\nDTSTART:${fmtUTC(start)}\r\nDTEND:${fmtUTC(end)}\r\nSUMMARY:⚽ ${m.home} vs ${m.away}\r\nLOCATION:${m.venue}\\, ${m.city}\r\nDESCRIPTION:${phase}${m.group ? ` - Grupo ${m.group}` : ""} | FIFA World Cup 2026\r\nBEGIN:VALARM\r\nTRIGGER:-PT15M\r\nACTION:DISPLAY\r\nDESCRIPTION:⚽ ${m.home} vs ${m.away} comienza en 15 min\r\nEND:VALARM\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n`;
+}
 function generateICS(matches, tzOffset) {
   let cal = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//WorldCup2026//Dashboard//ES\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n`;
   matches.forEach((m) => {
@@ -73,7 +109,7 @@ function generateICS(matches, tzOffset) {
 }
 
 // ─── Match Card ───────────────────────────────────────────────────
-function MatchCard({ match, starred, onToggle, tzOffset }) {
+function MatchCard({ match, starred, onToggle, onAddCalendar, tzOffset }) {
   const adj = adjustTime(match.time, match.date, -4, tzOffset);
   const isKnockout = match.phase !== "Grupos";
   const homeFlag = FLAG_MAP[match.home];
@@ -135,18 +171,32 @@ function MatchCard({ match, starred, onToggle, tzOffset }) {
           </div>
         </div>
 
-        <button
-          onClick={() => onToggle(match.id)}
-          style={{
-            background: "none", border: "none", cursor: "pointer",
-            padding: 6, borderRadius: 8, flexShrink: 0,
-            color: starred ? "var(--accent)" : "var(--text-muted)",
-            transition: "all 0.15s ease",
-          }}
-          aria-label={starred ? "Quitar de favoritos" : "Marcar como favorito"}
-        >
-          <Star size={20} fill={starred ? "currentColor" : "none"} stroke={1.8}/>
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+          <button
+            onClick={() => onToggle(match.id)}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              padding: 6, borderRadius: 8,
+              color: starred ? "var(--accent)" : "var(--text-muted)",
+              transition: "all 0.15s ease",
+            }}
+            aria-label={starred ? "Quitar de favoritos" : "Marcar como favorito"}
+          >
+            <Star size={20} fill={starred ? "currentColor" : "none"} stroke={1.8}/>
+          </button>
+          <button
+            onClick={() => onAddCalendar(match)}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              padding: 6, borderRadius: 8, color: "var(--text-muted)",
+              transition: "all 0.15s ease",
+            }}
+            aria-label="Agregar al calendario"
+            title="Agregar al calendario"
+          >
+            <Plus size={18} stroke={2}/>
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -186,6 +236,7 @@ function WorldCupDashboard() {
   });
   const [showFilters, setShowFilters] = useState(false);
   const [showTzPicker, setShowTzPicker] = useState(false);
+  const [addingMatch, setAddingMatch] = useState(null);
 
   const tzOffset = tzSetting === "auto" ? getDeviceOffset() : tzSetting;
 
@@ -260,6 +311,15 @@ function WorldCupDashboard() {
 
   const starredMatches = useMemo(() => MATCHES.filter((m) => starred.has(m.id)), [starred]);
 
+  // Webcal subscription URL — works once deployed (GitHub Pages, etc.)
+  const subscribeURL = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    const { protocol, host, pathname } = window.location;
+    if (protocol === "file:" || !host) return null;
+    const base = pathname.endsWith("/") ? pathname : pathname.replace(/[^/]*$/, "");
+    return `webcal://${host}${base}mundial.ics`;
+  }, []);
+
   const downloadICS = async () => {
     if (starredMatches.length === 0) return;
     const ics = generateICS(starredMatches, tzOffset);
@@ -307,6 +367,19 @@ function WorldCupDashboard() {
         <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 6 }}>
           EE.UU. · México · Canadá — 11 Jun – 19 Jul
         </p>
+        {subscribeURL && (
+          <a href={subscribeURL}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              marginTop: 14, padding: "7px 12px",
+              background: "var(--accent-light)", color: "var(--accent)",
+              border: "1px solid var(--accent)",
+              borderRadius: 8, fontSize: 12, fontWeight: 600,
+              textDecoration: "none", cursor: "pointer",
+            }}>
+            <Rss size={13}/> Suscribir todos los partidos
+          </a>
+        )}
       </header>
 
       {/* Sort toggle */}
@@ -514,15 +587,74 @@ function WorldCupDashboard() {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {section.items.map((m) => (
-                <MatchCard key={m.id} match={m} starred={starred.has(m.id)} onToggle={toggleStar} tzOffset={tzOffset}/>
+                <MatchCard key={m.id} match={m} starred={starred.has(m.id)} onToggle={toggleStar} onAddCalendar={setAddingMatch} tzOffset={tzOffset}/>
               ))}
             </div>
           </div>
         ))
       )}
 
+      {/* Calendar action sheet */}
+      {addingMatch && (() => {
+        const links = buildCalendarLinks(addingMatch);
+        const open = (url) => { window.open(url, "_blank", "noopener"); setAddingMatch(null); };
+        const downloadIcs = () => {
+          const ics = singleMatchICS(addingMatch);
+          const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = `${addingMatch.home}-vs-${addingMatch.away}.ics`.replace(/\s+/g, "_");
+          document.body.appendChild(a); a.click();
+          setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 100);
+          setAddingMatch(null);
+        };
+        const opts = [
+          { label: "Google Calendar", onClick: () => open(links.google), color: "#4285F4" },
+          { label: "Apple Calendar / iCloud", onClick: downloadIcs, color: "#1a1917" },
+          { label: "Outlook", onClick: () => open(links.outlook), color: "#0078D4" },
+          { label: "Yahoo", onClick: () => open(links.yahoo), color: "#6001D2" },
+          { label: "Descargar .ics", onClick: downloadIcs, color: "var(--text-secondary)", outline: true },
+        ];
+        return (
+          <div onClick={() => setAddingMatch(null)} style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+            display: "flex", alignItems: "flex-end", justifyContent: "center",
+            zIndex: 100, animation: "fadeIn 0.2s ease",
+          }}>
+            <div onClick={(e) => e.stopPropagation()} style={{
+              width: "100%", maxWidth: 520,
+              background: "var(--bg)", borderRadius: "16px 16px 0 0",
+              padding: "16px 16px max(20px, env(safe-area-inset-bottom)) 16px",
+              animation: "slideUp 0.25s ease",
+            }}>
+              <div style={{ width: 36, height: 4, background: "var(--border)", borderRadius: 2, margin: "0 auto 14px" }}/>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                Agregar al calendario
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", marginBottom: 16 }}>
+                {FLAG_MAP[addingMatch.home] || ""} {addingMatch.home} vs {addingMatch.away} {FLAG_MAP[addingMatch.away] || ""}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {opts.map((o, i) => (
+                  <button key={i} onClick={o.onClick} style={{
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    background: o.outline ? "transparent" : o.color, color: o.outline ? o.color : "#fff",
+                    border: o.outline ? "1px solid var(--border)" : "none",
+                    borderRadius: 10, padding: "12px 16px",
+                    cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "inherit",
+                  }}>{o.label}</button>
+                ))}
+                <button onClick={() => setAddingMatch(null)} style={{
+                  background: "transparent", border: "none", color: "var(--text-muted)",
+                  padding: "10px", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
+                }}>Cancelar</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       <div style={{
-        textAlign: "center", padding: "32px 0 16px",
         fontSize: 10, color: "var(--text-muted)", lineHeight: 1.6,
         borderTop: "1px solid var(--border)", marginTop: 20,
       }}>
