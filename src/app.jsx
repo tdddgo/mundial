@@ -16,6 +16,8 @@ const Clock = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><polyline poin
 const MapPin = (p) => <Icon {...p}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></Icon>;
 const Globe = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></Icon>;
 const ChevronDown = (p) => <Icon {...p}><polyline points="6 9 12 15 18 9"/></Icon>;
+const ChevronUp = (p) => <Icon {...p}><polyline points="18 15 12 9 6 15"/></Icon>;
+const ArrowUp = (p) => <Icon {...p}><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></Icon>;
 const Trophy = (p) => <Icon {...p}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></Icon>;
 const X = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
 const Check = (p) => <Icon {...p}><polyline points="20 6 9 17 4 12"/></Icon>;
@@ -27,7 +29,7 @@ const CalIcon = Calendar;
 const CalGrid = (p) => <Icon {...p}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="4" x2="9" y2="22"/><line x1="15" y1="4" x2="15" y2="22"/></Icon>;
 
 // ─── Pull globals from data.js ────────────────────────────────────
-const { MATCHES, GROUPS, PHASES, PHASE_SHORT, TZ_OPTIONS, FLAG_MAP, COUNTRY_MAP, TEAM_SLUGS } = window;
+const { MATCHES, GROUPS, PHASES, PHASE_SHORT, TZ_OPTIONS, FLAG_MAP, COUNTRY_MAP, TEAM_SLUGS, TEAM_COLORS } = window;
 
 // Per-group color (FIFA World Cup 26 vibrant palette)
 const GROUP_COLORS = {
@@ -368,6 +370,383 @@ function CalendarView({ matches, starred, tzOffset, onAddCalendar, onToggle }) {
   );
 }
 
+// ─── Countdown Banner ─────────────────────────────────────────────
+function CountdownBanner({ starred, themeAccent }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const live = useMemo(() => {
+    return [...starred].find((m) => {
+      const s = matchToUTC(m).getTime();
+      return now >= s && now < s + 2 * 60 * 60 * 1000;
+    });
+  }, [starred, now]);
+
+  const upcoming = useMemo(() => {
+    if (live) return null;
+    return [...starred]
+      .map((m) => ({ m, ts: matchToUTC(m).getTime() }))
+      .filter((x) => x.ts > now)
+      .sort((a, b) => a.ts - b.ts)[0]?.m;
+  }, [starred, now, live]);
+
+  if (!live && !upcoming) return null;
+
+  const m = live || upcoming;
+  const homeFlag = FLAG_MAP[m.home] || "🏳️";
+  const awayFlag = FLAG_MAP[m.away] || "🏳️";
+
+  let countdownStr = "";
+  if (!live) {
+    const diff = matchToUTC(upcoming).getTime() - now;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+    const mins = Math.floor((diff / (1000 * 60)) % 60);
+    const secs = Math.floor((diff / 1000) % 60);
+    if (days > 0) countdownStr = `EN ${days}D ${hours}H ${mins}M`;
+    else if (hours > 0) countdownStr = `EN ${hours}H ${mins}M ${String(secs).padStart(2, "0")}S`;
+    else countdownStr = `EN ${mins}M ${String(secs).padStart(2, "0")}S`;
+  }
+
+  return (
+    <div style={{
+      position: "sticky", top: 0, zIndex: 30,
+      margin: "0 -16px 16px",
+      background: live ? "#DC2626" : "var(--text-primary)",
+      color: live ? "#fff" : "var(--bg)",
+      padding: "12px 16px",
+      display: "flex", alignItems: "center", gap: 10,
+      animation: "fadeIn 0.3s ease",
+    }}>
+      {live && (
+        <span style={{
+          width: 10, height: 10, borderRadius: "50%", background: "#fff",
+          animation: "livePulse 1.2s ease-in-out infinite",
+          flexShrink: 0,
+        }}/>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontFamily: "var(--display-condensed)", fontSize: 10, fontWeight: 700,
+          letterSpacing: "0.16em", opacity: 0.75, textTransform: "uppercase",
+        }}>
+          {live ? "Ahora en vivo" : "Próximo favorito"}
+        </div>
+        <div style={{
+          fontFamily: "var(--display)", fontSize: 18, lineHeight: 1.1, marginTop: 2,
+          textTransform: "uppercase", letterSpacing: "0.01em",
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+        }}>
+          {homeFlag} {m.home} <span style={{ opacity: 0.5 }}>vs</span> {m.away} {awayFlag}
+        </div>
+      </div>
+      <div style={{
+        fontFamily: "var(--display-condensed)", fontSize: 13, fontWeight: 700,
+        letterSpacing: "0.06em", flexShrink: 0,
+      }}>
+        {live ? "EN VIVO" : countdownStr}
+      </div>
+    </div>
+  );
+}
+
+// ─── Onboarding ───────────────────────────────────────────────────
+function Onboarding({ onComplete, onSkip }) {
+  const [step, setStep] = useState(0);
+  const [team, setTeam] = useState(null);
+  const [champion, setChampion] = useState(null);
+
+  const teams = useMemo(() =>
+    [...new Set(MATCHES.filter(m => m.phase === "Grupos").flatMap(m => [m.home, m.away]))].sort()
+  , []);
+
+  const next = () => {
+    if (step === 0) {
+      if (!team) return;
+      setStep(1);
+    } else {
+      onComplete({ team, champion });
+    }
+  };
+
+  const stepTitle = step === 0 ? "¿A quién vas a alentar?" : "¿Quién será el campeón?";
+  const stepHint = step === 0
+    ? "Marcamos tus partidos como favoritos automáticamente."
+    : "Tu pronóstico se guarda en este dispositivo. Podés cambiarlo después.";
+  const stepValue = step === 0 ? team : champion;
+  const setStepValue = step === 0 ? setTeam : setChampion;
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 200,
+      background: "var(--bg)", display: "flex", flexDirection: "column",
+      animation: "fadeIn 0.3s ease",
+    }}>
+      {/* Top stripe */}
+      <div style={{ display: "flex", height: 6 }}>
+        {GROUPS.map((g) => (
+          <div key={g} style={{ flex: 1, background: GROUP_COLORS[g] }}/>
+        ))}
+      </div>
+
+      {/* Step indicator + skip */}
+      <div style={{
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        padding: "16px 20px 8px",
+      }}>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[0, 1].map((i) => (
+            <div key={i} style={{
+              width: i === step ? 24 : 8, height: 8,
+              background: i <= step ? "var(--text-primary)" : "var(--border)",
+              transition: "all 0.2s",
+            }}/>
+          ))}
+        </div>
+        <button onClick={onSkip} style={{
+          background: "none", border: "none", cursor: "pointer",
+          fontFamily: "var(--display-condensed)", fontSize: 12, fontWeight: 600,
+          color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em",
+        }}>Saltar</button>
+      </div>
+
+      {/* Title */}
+      <div style={{ padding: "12px 20px 16px" }}>
+        <h2 style={{
+          fontFamily: "var(--display)", fontSize: 40, lineHeight: 1,
+          color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.005em",
+        }}>{stepTitle}</h2>
+        <p style={{
+          fontFamily: "'DM Sans', sans-serif", fontSize: 13,
+          color: "var(--text-muted)", marginTop: 8,
+        }}>{stepHint}</p>
+      </div>
+
+      {/* Team grid */}
+      <div style={{
+        flex: 1, overflowY: "auto",
+        padding: "0 12px 20px",
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(72px, 1fr))",
+        gap: 8,
+        alignContent: "start",
+      }}>
+        {teams.map((t) => {
+          const selected = stepValue === t;
+          const tc = TEAM_COLORS[t] || "#525252";
+          return (
+            <button key={t} onClick={() => setStepValue(selected ? null : t)}
+              style={{
+                background: selected ? tc : "var(--card-bg)",
+                border: selected ? `2px solid ${tc}` : "1px solid var(--border)",
+                color: selected ? "#fff" : "var(--text-primary)",
+                padding: "10px 6px", cursor: "pointer", textAlign: "center",
+                fontFamily: "var(--display-condensed)", fontSize: 11, fontWeight: 600,
+                textTransform: "uppercase", letterSpacing: "0.04em",
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                aspectRatio: "1 / 1",
+                transition: "all 0.15s",
+              }}>
+              <span style={{ fontSize: 28, lineHeight: 1 }}>{FLAG_MAP[t] || "🏳️"}</span>
+              <span style={{
+                fontSize: 10, lineHeight: 1.1,
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                maxWidth: "100%",
+              }}>{t}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Bottom action */}
+      <div style={{
+        padding: "12px 20px max(20px, env(safe-area-inset-bottom)) 20px",
+        background: "var(--bg-elev)",
+        borderTop: "1px solid var(--border)",
+      }}>
+        <button onClick={next} disabled={step === 0 && !team} style={{
+          width: "100%",
+          padding: "14px",
+          background: (step === 0 && !team) ? "var(--border)" : "var(--text-primary)",
+          color: (step === 0 && !team) ? "var(--text-muted)" : "var(--bg)",
+          border: "none", cursor: (step === 0 && !team) ? "not-allowed" : "pointer",
+          fontFamily: "var(--display-condensed)", fontSize: 14, fontWeight: 700,
+          letterSpacing: "0.1em", textTransform: "uppercase",
+        }}>
+          {step === 0 ? "Siguiente →" : "Entrar al Mundial"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Bracket View ─────────────────────────────────────────────────
+// Match ID aliases used by FIFA brackets in source labels.
+const BRACKET_ALIASES = {
+  "QF1": 97, "QF2": 98, "QF3": 99, "QF4": 100,
+  "SF1": 101, "SF2": 102,
+};
+function resolveTeam(rawLabel, picks) {
+  if (!rawLabel) return rawLabel;
+  // "Ganador M73" or "Ganador QF1"
+  const winMatch = rawLabel.match(/^Ganador\s+(M\d+|QF\d|SF\d)$/);
+  if (winMatch) {
+    const ref = winMatch[1];
+    const id = ref.startsWith("M") ? parseInt(ref.slice(1), 10) : BRACKET_ALIASES[ref];
+    if (picks[id]) return picks[id];
+  }
+  return rawLabel;
+}
+function isPickable(label) {
+  // Group seed labels like "1° Grupo A", "3° (E/...)" are not pickable yet
+  return !/^(1°|2°|3°)/.test(label);
+}
+
+function BracketView({ picks, setPicks, myChampion }) {
+  const knockoutMatches = useMemo(() => MATCHES.filter((m) => m.phase !== "Grupos"), []);
+  const phases = [
+    { label: "Octavos · 32avos", phase: "Octavos", ids: knockoutMatches.filter(m => m.phase === "Octavos").map(m => m.id) },
+    { label: "16avos", phase: "Cuartos de Octavos", ids: knockoutMatches.filter(m => m.phase === "Cuartos de Octavos").map(m => m.id) },
+    { label: "Cuartos", phase: "Cuartos", ids: knockoutMatches.filter(m => m.phase === "Cuartos").map(m => m.id) },
+    { label: "Semifinales", phase: "Semifinal", ids: knockoutMatches.filter(m => m.phase === "Semifinal").map(m => m.id) },
+    { label: "Final", phase: "Final", ids: [104] },
+  ];
+
+  const pick = (matchId, side, team) => {
+    if (!isPickable(team)) return;
+    setPicks((p) => {
+      const next = { ...p, [matchId]: team };
+      try { localStorage.setItem("wc2026_bracket", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const clearBracket = () => {
+    if (!confirm("¿Borrar todas tus predicciones del bracket?")) return;
+    setPicks({});
+    try { localStorage.setItem("wc2026_bracket", "{}"); } catch {}
+  };
+
+  const championPick = picks[104];
+  const finalAccent = championPick ? (TEAM_COLORS[championPick] || "#FACC15") : "#FACC15";
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{
+        background: "var(--card-bg)", border: "1px solid var(--border)",
+        padding: "16px", marginBottom: 16,
+        display: "flex", alignItems: "center", gap: 14,
+      }}>
+        <div style={{
+          fontFamily: "var(--display)", fontSize: 48, lineHeight: 1,
+          color: championPick ? finalAccent : "var(--text-muted)",
+          flexShrink: 0,
+        }}>🏆</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontFamily: "var(--display-condensed)", fontSize: 11, fontWeight: 700,
+            color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em",
+          }}>Tu campeón pronosticado</div>
+          <div style={{
+            fontFamily: "var(--display)", fontSize: 26, lineHeight: 1,
+            marginTop: 4, color: championPick ? "var(--text-primary)" : "var(--text-muted)",
+            textTransform: "uppercase", letterSpacing: "0.005em",
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          }}>
+            {championPick ? `${FLAG_MAP[championPick] || ""} ${championPick}` : "—"}
+          </div>
+        </div>
+        {Object.keys(picks).length > 0 && (
+          <button onClick={clearBracket} style={{
+            background: "transparent", border: "1px solid var(--border)",
+            color: "var(--text-muted)", padding: "6px 10px", cursor: "pointer",
+            fontFamily: "var(--display-condensed)", fontSize: 10, fontWeight: 700,
+            textTransform: "uppercase", letterSpacing: "0.08em",
+          }}>Reiniciar</button>
+        )}
+      </div>
+
+      {/* Phases */}
+      {phases.map(({ label, ids }) => (
+        <div key={label} style={{ marginBottom: 24 }}>
+          <h3 style={{
+            fontFamily: "var(--display)", fontSize: 22, lineHeight: 1,
+            color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.01em",
+            marginBottom: 10,
+          }}>{label}</h3>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: ids.length === 1 ? "1fr" : "repeat(auto-fill, minmax(170px, 1fr))",
+            gap: 8,
+          }}>
+            {ids.map((id) => {
+              const m = MATCHES.find((x) => x.id === id);
+              const homeT = resolveTeam(m.home, picks);
+              const awayT = resolveTeam(m.away, picks);
+              const picked = picks[m.id];
+              const isFinalMatch = m.phase === "Final";
+              return (
+                <div key={id} style={{
+                  background: "var(--card-bg)", border: "1px solid var(--border)",
+                  borderTop: isFinalMatch ? `4px solid ${finalAccent}` : "1px solid var(--border)",
+                  display: "flex", flexDirection: "column",
+                }}>
+                  {[{ side: "home", team: homeT }, { side: "away", team: awayT }].map(({ side, team }, i) => {
+                    const isPicked = picked === team;
+                    const canPick = isPickable(team);
+                    const teamColor = TEAM_COLORS[team] || "var(--text-primary)";
+                    return (
+                      <button key={i}
+                        onClick={() => pick(m.id, side, team)}
+                        disabled={!canPick}
+                        style={{
+                          background: isPicked ? teamColor : "transparent",
+                          color: isPicked ? "#fff" : (canPick ? "var(--text-primary)" : "var(--text-muted)"),
+                          border: "none", padding: "10px 12px",
+                          borderTop: i === 1 ? "1px solid var(--border)" : "none",
+                          display: "flex", alignItems: "center", gap: 8,
+                          cursor: canPick ? "pointer" : "not-allowed",
+                          fontFamily: "var(--display-condensed)", fontSize: 13, fontWeight: 600,
+                          textAlign: "left", textTransform: "uppercase", letterSpacing: "0.02em",
+                          minHeight: 42,
+                        }}>
+                        <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>
+                          {FLAG_MAP[team] || (canPick ? "🏳️" : "?")}
+                        </span>
+                        <span style={{
+                          flex: 1, fontFamily: "var(--display-condensed)", fontWeight: 600,
+                          textTransform: "uppercase", letterSpacing: "0.02em",
+                          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                          fontSize: 12,
+                        }}>{team}</span>
+                        {isPicked && <Check size={14}/>}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+
+      {/* Helper */}
+      <div style={{
+        padding: "16px", background: "var(--bg-elev)",
+        fontFamily: "var(--display-condensed)", fontSize: 11, fontWeight: 600,
+        color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em",
+        lineHeight: 1.6,
+      }}>
+        Tap un equipo para marcarlo como ganador. Las posiciones de los grupos (1°, 2°, 3°) aún no están definidas y no se pueden seleccionar hasta junio 2026.
+      </div>
+    </div>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────
 function WorldCupDashboard() {
   const [starred, setStarred] = useState(() => {
@@ -389,6 +768,77 @@ function WorldCupDashboard() {
   const [showFilters, setShowFilters] = useState(false);
   const [showTzPicker, setShowTzPicker] = useState(false);
   const [addingMatch, setAddingMatch] = useState(null);
+  const [expandedSections, setExpandedSections] = useState(() => {
+    try {
+      const stored = localStorage.getItem("wc2026_expanded");
+      if (stored) return new Set(JSON.parse(stored));
+    } catch {}
+    // Default: knockouts expanded, groups collapsed (overview-first)
+    return new Set(["P1-Octavos", "P2-Cuartos de Octavos", "P3-Cuartos", "P4-Semifinal", "P5-Tercer puesto", "P6-Final"]);
+  });
+  const [showTop, setShowTop] = useState(false);
+
+  // Onboarding + theme + bracket
+  const [myTeam, setMyTeam] = useState(() => localStorage.getItem("wc2026_myTeam") || null);
+  const [myChampion, setMyChampion] = useState(() => localStorage.getItem("wc2026_champion") || null);
+  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem("wc2026_onboarded"));
+  const [bracketPicks, setBracketPicksState] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("wc2026_bracket") || "{}"); }
+    catch { return {}; }
+  });
+  const setBracketPicks = useCallback((updater) => {
+    setBracketPicksState((prev) => typeof updater === "function" ? updater(prev) : updater);
+  }, []);
+
+  const completeOnboarding = useCallback(({ team, champion }) => {
+    if (team) {
+      setMyTeam(team);
+      localStorage.setItem("wc2026_myTeam", team);
+      // Auto-star all matches involving this team
+      const teamMatchIds = MATCHES.filter((m) => m.home === team || m.away === team).map(m => m.id);
+      setStarred((prev) => {
+        const next = new Set(prev);
+        teamMatchIds.forEach(id => next.add(id));
+        try { localStorage.setItem("wc2026_starred", JSON.stringify([...next])); } catch {}
+        return next;
+      });
+    }
+    if (champion) {
+      setMyChampion(champion);
+      localStorage.setItem("wc2026_champion", champion);
+      // Pre-fill the final pick with champion (best effort)
+      setBracketPicks((p) => {
+        const next = { ...p, 104: champion };
+        try { localStorage.setItem("wc2026_bracket", JSON.stringify(next)); } catch {}
+        return next;
+      });
+    }
+    localStorage.setItem("wc2026_onboarded", "true");
+    setShowOnboarding(false);
+  }, []);
+
+  const skipOnboarding = useCallback(() => {
+    localStorage.setItem("wc2026_onboarded", "true");
+    setShowOnboarding(false);
+  }, []);
+
+  // Theme accent based on user's team
+  const themeAccent = myTeam ? TEAM_COLORS[myTeam] : null;
+
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 600);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const toggleSection = useCallback((key) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      try { localStorage.setItem("wc2026_expanded", JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }, []);
 
   const tzOffset = tzSetting === "auto" ? getDeviceOffset() : tzSetting;
 
@@ -418,6 +868,7 @@ function WorldCupDashboard() {
 
   // Sectioned by group (default) or by date
   const sections = useMemo(() => {
+    if (groupBy === "calendar" || groupBy === "bracket") return [];
     if (groupBy === "date") {
       const map = new Map();
       filtered.forEach((m) => {
@@ -500,82 +951,94 @@ function WorldCupDashboard() {
   };
 
   return (
-    <div style={{
+    <>
+      {themeAccent && (
+        <style>{`
+          .app-themed {
+            --accent: ${themeAccent};
+            --accent-soft: ${themeAccent}22;
+          }
+        `}</style>
+      )}
+      {showOnboarding && (
+        <Onboarding onComplete={completeOnboarding} onSkip={skipOnboarding}/>
+      )}
+    <div className={themeAccent ? "app-themed" : ""} style={{
       background: "var(--bg)", color: "var(--text-primary)",
       minHeight: "100vh", maxWidth: 520, margin: "0 auto",
       padding: "0 16px 80px",
     }}>
       {/* Header / Hero */}
       <header style={{
-        position: "relative", overflow: "hidden",
-        margin: "0 -16px 16px", padding: "32px 16px 24px",
-        background: "linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)",
-        color: "#fafafa",
+        position: "relative",
+        margin: "0 -16px 16px",
+        padding: "0 0 24px",
+        background: "var(--bg-elev)",
+        color: "var(--text-primary)",
+        borderBottom: "1px solid var(--border)",
       }}>
-        {/* Geometric pattern grid */}
-        <svg viewBox="0 0 520 200" preserveAspectRatio="none" aria-hidden="true" style={{
-          position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.5,
-        }}>
-          <defs>
-            <pattern id="wcgrid" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse">
-              <rect x="0" y="0" width="30" height="30" fill="#E11D48" opacity="0.18"/>
-              <rect x="30" y="0" width="30" height="30" fill="#7C3AED" opacity="0.18"/>
-              <rect x="0" y="30" width="30" height="30" fill="#06B6D4" opacity="0.18"/>
-              <rect x="30" y="30" width="30" height="30" fill="#F59E0B" opacity="0.18"/>
-            </pattern>
-          </defs>
-          <rect width="520" height="200" fill="url(#wcgrid)"/>
-          <circle cx="460" cy="40" r="55" fill="#E11D48" opacity="0.65"/>
-          <rect x="380" y="110" width="80" height="80" fill="#FACC15" opacity="0.55"/>
-        </svg>
-        <div style={{ position: "relative", zIndex: 1 }}>
+        {/* 12-color stripe representing groups */}
+        <div style={{ display: "flex", height: 6 }}>
+          {GROUPS.map((g) => (
+            <div key={g} style={{ flex: 1, background: GROUP_COLORS[g] }}/>
+          ))}
+        </div>
+        <div style={{ padding: "28px 16px 0" }}>
           <div style={{
-            display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 8,
-            padding: "4px 10px", background: "rgba(255,255,255,0.1)",
-            border: "1px solid rgba(255,255,255,0.15)",
-            backdropFilter: "blur(8px)",
+            display: "flex", alignItems: "center", gap: 8, marginBottom: 14,
           }}>
+            <span style={{ width: 8, height: 8, background: "var(--accent)", borderRadius: "50%" }}/>
             <span style={{
               fontFamily: "var(--display-condensed)", fontSize: 11, fontWeight: 600,
-              letterSpacing: "0.18em", textTransform: "uppercase", color: "#fafafa",
+              letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-secondary)",
             }}>FIFA World Cup 26™</span>
           </div>
           <h1 style={{
-            fontFamily: "var(--display)", fontSize: 76, fontWeight: 400,
-            lineHeight: 0.85, letterSpacing: "0.005em",
-            color: "#fafafa", marginTop: 4,
+            fontFamily: "var(--display)", fontSize: 84, fontWeight: 400,
+            lineHeight: 0.86, letterSpacing: "0.005em",
+            color: "var(--text-primary)",
             textTransform: "uppercase",
           }}>
             Mundial<br/>
-            <span style={{ display: "inline-block" }}>26</span>
-            <span style={{
-              display: "inline-block", verticalAlign: "top", marginLeft: 8, marginTop: 6,
-              width: 14, height: 14, background: "#E11D48",
-            }}/>
+            <span style={{ display: "inline-flex", alignItems: "baseline", gap: 12 }}>
+              <span>26</span>
+              <span style={{
+                fontFamily: "var(--display-condensed)", fontWeight: 700,
+                fontSize: 13, color: "var(--text-muted)",
+                letterSpacing: "0.14em", alignSelf: "flex-end", marginBottom: 12,
+              }}>104 PARTIDOS<br/>48 SELECCIONES</span>
+            </span>
           </h1>
           <p style={{
-            fontFamily: "var(--display-condensed)", fontSize: 12,
-            letterSpacing: "0.12em", textTransform: "uppercase",
-            color: "#a3a3a3", marginTop: 12,
+            fontFamily: "var(--display-condensed)", fontSize: 13,
+            letterSpacing: "0.1em", textTransform: "uppercase",
+            color: "var(--text-secondary)", marginTop: 18,
+            display: "flex", flexWrap: "wrap", gap: "4px 14px",
           }}>
-            🇺🇸 EE.UU. · 🇲🇽 México · 🇨🇦 Canadá — 11 Jun → 19 Jul
+            <span>🇺🇸 EE.UU.</span>
+            <span>🇲🇽 México</span>
+            <span>🇨🇦 Canadá</span>
+            <span style={{ color: "var(--text-muted)" }}>· 11 Jun → 19 Jul</span>
           </p>
           {subscribeURL && (
             <a href={subscribeURL}
               style={{
-                display: "inline-flex", alignItems: "center", gap: 6,
-                marginTop: 18, padding: "10px 14px",
-                background: "#E11D48", color: "#fff",
+                display: "inline-flex", alignItems: "center", gap: 8,
+                marginTop: 20, padding: "12px 16px",
+                background: "var(--text-primary)", color: "var(--bg)",
                 border: "none",
                 fontFamily: "var(--display-condensed)", fontSize: 12,
-                fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
+                fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
                 textDecoration: "none", cursor: "pointer",
               }}>
-              <Rss size={13}/> Suscribir todos los partidos
+              <Rss size={14}/> Suscribir el calendario completo
             </a>
           )}
         </div>
       </header>
+
+      {/* Countdown banner */}
+      <CountdownBanner starred={starredMatches} themeAccent={themeAccent}/>
 
       {/* Sort toggle */}
       <div style={{
@@ -583,9 +1046,10 @@ function WorldCupDashboard() {
         borderRadius: 10, padding: 3, marginBottom: 12,
       }}>
         {[
-          { id: "group", label: "Por grupo", Ico: LayoutGrid },
-          { id: "date", label: "Por fecha", Ico: CalIcon },
-          { id: "calendar", label: "Calendario", Ico: CalGrid },
+          { id: "group", label: "Grupos", Ico: LayoutGrid },
+          { id: "date", label: "Fechas", Ico: CalIcon },
+          { id: "calendar", label: "Mes", Ico: CalGrid },
+          { id: "bracket", label: "Bracket", Ico: Trophy },
         ].map(({ id, label, Ico }) => (
           <button key={id} onClick={() => setGroupBy(id)}
             style={{
@@ -649,7 +1113,7 @@ function WorldCupDashboard() {
               <button key={String(tz.value)} onClick={() => { setTzSetting(tz.value); setShowTzPicker(false); }}
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "space-between",
-                  background: tzSetting === tz.value ? "var(--accent-light)" : "transparent",
+                  background: tzSetting === tz.value ? "var(--accent-soft)" : "transparent",
                   border: "none", borderRadius: 6, padding: "8px 10px",
                   cursor: "pointer", fontSize: 12, color: "var(--text-primary)",
                   fontWeight: tzSetting === tz.value ? 600 : 400,
@@ -726,25 +1190,43 @@ function WorldCupDashboard() {
         </button>
       )}
 
-      {/* Stats */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        {[
-          { val: filtered.length, label: "Partidos", color: "var(--text-primary)" },
-          { val: starred.size, label: "Favoritos", color: "var(--accent)" },
-          { val: sections.length, label: groupBy === "group" ? "Secciones" : "Jornadas", color: "var(--text-primary)" },
-        ].map((s, i) => (
-          <div key={i} style={{
-            flex: 1, background: "var(--card-bg)", border: "1px solid var(--border)",
-            borderRadius: 10, padding: "10px 14px", textAlign: "center",
+      {/* Stats / List controls */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "stretch" }}>
+        <div style={{
+          flex: 1, background: "var(--card-bg)", border: "1px solid var(--border)",
+          padding: "10px 14px",
+        }}>
+          <div style={{ fontFamily: "var(--display)", fontSize: 22, lineHeight: 1, color: "var(--text-primary)" }}>{filtered.length}</div>
+          <div style={{ fontFamily: "var(--display-condensed)", fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>Partidos</div>
+        </div>
+        <div style={{
+          flex: 1, background: "var(--card-bg)", border: "1px solid var(--border)",
+          padding: "10px 14px",
+        }}>
+          <div style={{ fontFamily: "var(--display)", fontSize: 22, lineHeight: 1, color: "var(--accent)" }}>{starred.size}</div>
+          <div style={{ fontFamily: "var(--display-condensed)", fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>Favoritos</div>
+        </div>
+        {groupBy === "group" && (
+          <button onClick={() => {
+            const allKeys = sections.map(s => s.key);
+            const allExpanded = allKeys.every(k => expandedSections.has(k));
+            setExpandedSections(allExpanded ? new Set() : new Set(allKeys));
+            try { localStorage.setItem("wc2026_expanded", JSON.stringify(allExpanded ? [] : allKeys)); } catch {}
+          }} style={{
+            background: "var(--card-bg)", border: "1px solid var(--border)",
+            padding: "10px 14px", cursor: "pointer",
+            fontFamily: "var(--display-condensed)", fontSize: 11, fontWeight: 700,
+            color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em",
           }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: s.color }}>{s.val}</div>
-            <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em" }}>{s.label}</div>
-          </div>
-        ))}
+            {sections.every(s => expandedSections.has(s.key)) ? "Colapsar" : "Expandir"}<br/>todo
+          </button>
+        )}
       </div>
 
       {/* Sections */}
-      {groupBy === "calendar" ? (
+      {groupBy === "bracket" ? (
+        <BracketView picks={bracketPicks} setPicks={setBracketPicks} myChampion={myChampion}/>
+      ) : groupBy === "calendar" ? (
         <CalendarView matches={filtered} starred={starred} tzOffset={tzOffset} onAddCalendar={setAddingMatch} onToggle={toggleStar}/>
       ) : sections.length === 0 ? (
         <div style={{ textAlign: "center", padding: "48px 20px", color: "var(--text-muted)", fontSize: 14 }}>
@@ -753,55 +1235,82 @@ function WorldCupDashboard() {
           <p style={{ fontSize: 12, marginTop: 4 }}>Ajusta los filtros o la búsqueda</p>
         </div>
       ) : (
-        sections.map((section, di) => (
-          <div key={section.key} className="match-enter" style={{ animationDelay: `${di * 0.03}s`, marginBottom: 24 }}>
-            {(() => {
-              const isGroupSec = groupBy === "group" && section.key.startsWith("G");
-              const letter = isGroupSec ? section.key.slice(1) : null;
-              const secColor = letter ? GROUP_COLORS[letter] : (groupBy === "group" ? (PHASE_COLORS[section.items[0].phase] || "#525252") : "var(--text-primary)");
-              return (
-                <div style={{
-                  display: "flex", alignItems: "stretch", marginBottom: 12,
-                  position: "sticky", top: 0, zIndex: 2,
-                  background: "var(--bg)", paddingTop: 4, paddingBottom: 4,
+        sections.map((section, di) => {
+          const isGroupSec = groupBy === "group" && section.key.startsWith("G");
+          const letter = isGroupSec ? section.key.slice(1) : null;
+          const secColor = letter ? GROUP_COLORS[letter] : (PHASE_COLORS[section.items[0].phase] || "#525252");
+          const isCollapsible = groupBy === "group";
+          const expanded = !isCollapsible || expandedSections.has(section.key);
+          const teams = isGroupSec ? [...new Set(section.items.flatMap(m => [m.home, m.away]))] : [];
+          const favs = section.items.filter(m => starred.has(m.id)).length;
+
+          return (
+            <div key={section.key} id={`sec-${section.key}`} className="match-enter" style={{ animationDelay: `${di * 0.03}s`, marginBottom: 12 }}>
+              <button
+                onClick={() => isCollapsible && toggleSection(section.key)}
+                disabled={!isCollapsible}
+                style={{
+                  width: "100%", background: "var(--card-bg)",
+                  border: "1px solid var(--border)",
+                  borderLeft: `6px solid ${secColor}`,
+                  padding: "14px 14px",
+                  display: "flex", alignItems: "center", gap: 12,
+                  cursor: isCollapsible ? "pointer" : "default",
+                  textAlign: "left", color: "inherit",
+                  fontFamily: "inherit",
                 }}>
-                  {isGroupSec && (
-                    <div style={{
-                      width: 56, background: secColor, color: "#fff",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontFamily: "var(--display)", fontSize: 36, lineHeight: 1,
-                      letterSpacing: "0.02em", marginRight: 12,
-                    }}>{letter}</div>
-                  )}
-                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      fontFamily: "var(--display)", fontSize: 28, lineHeight: 1,
-                      letterSpacing: "0.01em", textTransform: "uppercase",
-                      color: "var(--text-primary)",
-                    }}>{section.title}</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                      {section.subtitle && (
-                        <span style={{
-                          fontFamily: "var(--display-condensed)", fontSize: 11, fontWeight: 600,
-                          color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em",
-                        }}>{section.subtitle}</span>
-                      )}
-                      <span style={{
-                        fontFamily: "var(--display-condensed)", fontSize: 11, fontWeight: 600,
-                        color: secColor, textTransform: "uppercase", letterSpacing: "0.08em",
-                      }}>· {section.items.length} part.</span>
+                {isGroupSec && (
+                  <div style={{
+                    width: 48, height: 48, flexShrink: 0,
+                    background: secColor, color: "#fff",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontFamily: "var(--display)", fontSize: 36, lineHeight: 1,
+                  }}>{letter}</div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontFamily: "var(--display)", fontSize: 22, lineHeight: 1,
+                    textTransform: "uppercase", letterSpacing: "0.01em",
+                    color: "var(--text-primary)",
+                  }}>{section.title}</div>
+                  {isGroupSec ? (
+                    <div style={{ display: "flex", gap: 8, marginTop: 8, fontSize: 18, lineHeight: 1, flexWrap: "wrap" }}>
+                      {teams.map((t, i) => <span key={i} title={t}>{FLAG_MAP[t] || "🏳️"}</span>)}
                     </div>
-                  </div>
+                  ) : (
+                    <div style={{
+                      fontFamily: "var(--display-condensed)", fontSize: 11, fontWeight: 600,
+                      color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4,
+                    }}>{section.subtitle}</div>
+                  )}
                 </div>
-              );
-            })()}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {section.items.map((m) => (
-                <MatchCard key={m.id} match={m} starred={starred.has(m.id)} onToggle={toggleStar} onAddCalendar={setAddingMatch} tzOffset={tzOffset}/>
-              ))}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+                  <span style={{
+                    fontFamily: "var(--display-condensed)", fontSize: 11, fontWeight: 700,
+                    color: secColor, textTransform: "uppercase", letterSpacing: "0.06em",
+                  }}>{section.items.length} part.</span>
+                  {favs > 0 && (
+                    <span style={{
+                      fontFamily: "var(--display-condensed)", fontSize: 10, fontWeight: 600,
+                      color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.06em",
+                      display: "flex", alignItems: "center", gap: 3,
+                    }}><Star size={10} fill="currentColor" stroke={2}/> {favs}</span>
+                  )}
+                  {isCollapsible && (expanded
+                    ? <ChevronUp size={16} style={{ color: "var(--text-muted)" }}/>
+                    : <ChevronDown size={16} style={{ color: "var(--text-muted)" }}/>)}
+                </div>
+              </button>
+              {expanded && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                  {section.items.map((m) => (
+                    <MatchCard key={m.id} match={m} starred={starred.has(m.id)} onToggle={toggleStar} onAddCalendar={setAddingMatch} tzOffset={tzOffset}/>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
-        ))
+          );
+        })
       )}
 
       {/* Calendar action sheet — single match or array of matches */}
@@ -909,15 +1418,37 @@ function WorldCupDashboard() {
         );
       })()}
 
+      {/* Scroll to top FAB */}
+      {showTop && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          aria-label="Volver arriba"
+          style={{
+            position: "fixed", bottom: 20, right: 20, zIndex: 50,
+            width: 48, height: 48,
+            background: "var(--text-primary)", color: "var(--bg)",
+            border: "none", borderRadius: "50%",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", boxShadow: "0 6px 20px rgba(0,0,0,0.25)",
+            animation: "fadeIn 0.2s ease",
+          }}>
+          <ArrowUp size={20} stroke={2.4}/>
+        </button>
+      )}
+
       <div style={{
-        fontSize: 10, color: "var(--text-muted)", lineHeight: 1.6,
-        borderTop: "1px solid var(--border)", marginTop: 20,
+        textAlign: "center", padding: "24px 0 8px",
+        fontFamily: "var(--display-condensed)", fontSize: 11, fontWeight: 600,
+        color: "var(--text-muted)", lineHeight: 1.7,
+        letterSpacing: "0.06em", textTransform: "uppercase",
+        borderTop: "1px solid var(--border)", marginTop: 24,
       }}>
-        Horarios en GMT{tzOffset >= 0 ? "+" : ""}{tzOffset} · Alarma 15 min antes del inicio
+        Horarios en GMT{tzOffset >= 0 ? "+" : ""}{tzOffset} · Alarma 15 min antes
         <br/>
-        Hecho con ⚽ para el Mundial 2026
+        ⚽ Mundial 2026
       </div>
     </div>
+    </>
   );
 }
 

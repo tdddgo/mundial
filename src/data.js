@@ -173,3 +173,24 @@ window.COUNTRY_MAP = {
   "Ciudad de México": "🇲🇽", "Zapopan": "🇲🇽", "Monterrey": "🇲🇽",
   "Toronto": "🇨🇦", "Vancouver": "🇨🇦",
 };
+
+// Primary brand color per team — used when user picks "their" team
+window.TEAM_COLORS = {
+  "Argentina": "#6CB4EE", "Brasil": "#009C3B", "México": "#006847",
+  "España": "#AA151B", "Francia": "#0055A4", "Inglaterra": "#CE1124",
+  "Alemania": "#FFCE00", "Países Bajos": "#FF6B00", "Portugal": "#C8102E",
+  "Estados Unidos": "#0A3161", "Canadá": "#D52B1E", "Uruguay": "#75AADB",
+  "Colombia": "#FCD116", "Ecuador": "#FFD100", "Paraguay": "#D52B1E",
+  "Bélgica": "#FAE042", "Croacia": "#171796", "Suiza": "#D52B1E",
+  "Dinamarca": "#C8102E", "Polonia": "#DC143C", "Marruecos": "#C1272D",
+  "Senegal": "#00853F", "Costa de Marfil": "#FF8200", "Ghana": "#FCD116",
+  "Egipto": "#CE1126", "Sudáfrica": "#007749", "Túnez": "#E70013",
+  "Argelia": "#006233", "Cabo Verde": "#003893", "RD Congo": "#007FFF",
+  "Japón": "#BC002D", "Corea del Sur": "#003478", "Australia": "#FFCD00",
+  "Irán": "#239F40", "Arabia Saudita": "#006C35", "Qatar": "#8D1B3D",
+  "Irak": "#CE1126", "Jordania": "#000000", "Uzbekistán": "#1EB53A",
+  "Nueva Zelanda": "#000000", "Curazao": "#002868", "Haití": "#00209F",
+  "Escocia": "#0065BD", "Chequia": "#11457E", "Bosnia y Herzegovina": "#002F6C",
+  "Suecia": "#FECC00", "Noruega": "#EF2B2D", "Austria": "#ED2939",
+  "Turquía": "#E30A17", "Panamá": "#005AA7",
+};

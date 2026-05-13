@@ -4,7 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#E11D48">
-  <meta name="description" content="Dashboard del Mundial 2026 — partidos por grupos, favoritos y exportación a calendario (.ics).">
+  <meta name="description" content="Dashboard del Mundial 2026 — partidos por grupos, favoritos, bracket interactivo y calendario.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Mundial 26">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <title>Mundial 2026 · Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -65,6 +71,10 @@
       from { transform: translateY(100%); }
       to { transform: translateY(0); }
     }
+    @keyframes livePulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.6; }
+    }
     /* Splash while Babel loads */
     #splash {
       position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -113,6 +123,13 @@
       }
     });
     obs.observe(document.getElementById("root"), { childList: true });
+
+    // PWA — register service worker (skip on file:// and on the bundled standalone)
+    if ("serviceWorker" in navigator && location.protocol !== "file:" && !document.documentElement.hasAttribute("data-bundled")) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("sw.js").catch(() => {});
+      });
+    }
   </script>
 </body>
 </html>
