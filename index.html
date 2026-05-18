@@ -14,47 +14,57 @@
   <title>Mundial 2026 · Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #ffffff;
-      --bg-elev: #f5f5f4;
+      --bg: #f4f1ec;
+      --bg-elev: #ffffff;
       --card-bg: #ffffff;
-      --card-starred: #fff8f0;
-      --border: #e7e5e4;
+      --card-starred: #fffaf2;
+      --border: #e0dcd2;
       --border-strong: #1c1917;
-      --text-primary: #0c0a09;
-      --text-secondary: #44403c;
-      --text-muted: #78716c;
-      --accent: #E11D48;
-      --accent-soft: #fef2f4;
-      --gold: #FACC15;
-      --display: 'Bebas Neue', 'Oswald', 'Arial Narrow', system-ui, sans-serif;
-      --display-condensed: 'Oswald', 'Bebas Neue', system-ui, sans-serif;
-      --g-A: #E11D48; --g-B: #7C3AED; --g-C: #2563EB; --g-D: #0D9488;
-      --g-E: #65A30D; --g-F: #F59E0B; --g-G: #EA580C; --g-H: #DB2777;
-      --g-I: #FB7185; --g-J: #06B6D4; --g-K: #4F46E5; --g-L: #059669;
+      --text-primary: #14110f;
+      --text-secondary: #4a4540;
+      --text-muted: #8a847c;
+      --accent: #C8102E;
+      --accent-soft: #fbe9ec;
+      --gold: #C7A35A;
+      --display: 'Bebas Neue', 'Arial Narrow', system-ui, sans-serif;
+      --display-condensed: 'Bebas Neue', 'Arial Narrow', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+      --g-A: #C8102E; --g-B: #6D28D9; --g-C: #1D4ED8; --g-D: #0F766E;
+      --g-E: #4D7C0F; --g-F: #B45309; --g-G: #C2410C; --g-H: #BE185D;
+      --g-I: #E11D48; --g-J: #0E7490; --g-K: #4338CA; --g-L: #047857;
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #0a0a0a;
-        --bg-elev: #171717;
-        --card-bg: #141414;
-        --card-starred: #1a0d10;
-        --border: #262626;
-        --border-strong: #fafafa;
-        --text-primary: #fafafa;
-        --text-secondary: #d4d4d4;
-        --text-muted: #737373;
-        --accent: #FB7185;
-        --accent-soft: #1f0a10;
-        --gold: #FDE047;
+        --bg: #100e0c;
+        --bg-elev: #1a1614;
+        --card-bg: #1a1614;
+        --card-starred: #211a14;
+        --border: #2d2620;
+        --border-strong: #f5f1e8;
+        --text-primary: #f5f1e8;
+        --text-secondary: #c4bcae;
+        --text-muted: #7a736a;
+        --accent: #F87171;
+        --accent-soft: #2a1416;
+        --gold: #E0C284;
       }
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { background: var(--bg); color: var(--text-primary); font-family: 'DM Sans', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+    body {
+      background-image:
+        radial-gradient(circle at 1px 1px, rgba(20,17,15,0.04) 1px, transparent 0);
+      background-size: 24px 24px;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { background-image: radial-gradient(circle at 1px 1px, rgba(245,241,232,0.025) 1px, transparent 0); }
+    }
     .display { font-family: var(--display); font-weight: 400; letter-spacing: 0.005em; }
-    .display-cond { font-family: var(--display-condensed); font-weight: 700; letter-spacing: 0.01em; }
+    .display-cond { font-family: var(--display-condensed); font-weight: 400; letter-spacing: 0.005em; }
+    .mono { font-family: var(--mono); font-feature-settings: "tnum" 1; }
     .upper { text-transform: uppercase; }
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }

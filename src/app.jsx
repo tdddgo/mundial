@@ -130,64 +130,65 @@ function generateICS(matches, tzOffset) {
 // ─── Match Card ───────────────────────────────────────────────────
 function MatchCard({ match, starred, onToggle, onAddCalendar, tzOffset }) {
   const adj = adjustTime(match.time, match.date, -4, tzOffset);
-  const isKnockout = match.phase !== "Grupos";
   const homeFlag = FLAG_MAP[match.home];
   const awayFlag = FLAG_MAP[match.away];
   const countryFlag = COUNTRY_MAP[match.city];
   const accent = groupColor(match.group, match.phase);
   const isFinal = match.phase === "Final";
+  const isKnockout = match.phase !== "Grupos";
+
+  // Format date as monospace: VIE 12 JUN
+  const d = new Date(adj.date + "T12:00:00Z");
+  const days = ["DOM","LUN","MAR","MIE","JUE","VIE","SAB"];
+  const months = ["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"];
+  const dateLine = `${days[d.getUTCDay()]} ${String(d.getUTCDate()).padStart(2,"0")} ${months[d.getUTCMonth()]}`;
 
   return (
     <div style={{
       background: "var(--card-bg)",
       border: "1px solid var(--border)",
-      borderRadius: 12, overflow: "hidden",
-      transition: "all 0.2s ease", position: "relative",
-      boxShadow: starred ? `0 0 0 2px ${accent}` : "none",
+      position: "relative",
+      transition: "all 0.2s ease",
+      boxShadow: starred ? `0 0 0 1px ${accent}, 0 1px 3px rgba(0,0,0,0.04)` : "0 1px 2px rgba(0,0,0,0.03)",
     }}>
-      {/* Top color band */}
+      {/* Top meta strip */}
       <div style={{
-        background: accent, color: isFinal ? "#0a0a0a" : "#fff",
-        padding: "6px 14px",
         display: "flex", justifyContent: "space-between", alignItems: "center",
-        fontFamily: "var(--display)", fontSize: 14, letterSpacing: "0.06em",
-        textTransform: "uppercase",
+        padding: "8px 14px",
+        borderBottom: "1px solid var(--border)",
+        background: starred ? "var(--card-starred)" : "transparent",
       }}>
-        <span style={{ fontWeight: 400 }}>
+        <span style={{
+          display: "inline-flex", alignItems: "center", gap: 6,
+          fontFamily: "var(--mono)", fontSize: 10, fontWeight: 700,
+          color: accent, textTransform: "uppercase", letterSpacing: "0.08em",
+        }}>
+          <span style={{ width: 8, height: 8, background: accent, display: "inline-block" }}/>
           {match.group ? `Grupo ${match.group}` : (PHASE_SHORT[match.phase] || match.phase)}
+          {isFinal && " · 🏆"}
         </span>
-        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, fontWeight: 700, opacity: 0.9 }}>
-          M{match.id}
+        <span style={{
+          fontFamily: "var(--mono)", fontSize: 9, fontWeight: 500,
+          color: "var(--text-muted)", letterSpacing: "0.06em",
+        }}>
+          {dateLine} · {adj.time}
         </span>
       </div>
 
-      <div style={{ display: "flex", padding: "14px 14px 12px", gap: 10 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {[{ name: match.home, flag: homeFlag }, { name: match.away, flag: awayFlag }].map((t, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 22, lineHeight: 1 }}>{t.flag || "🏳️"}</span>
-                <span style={{
-                  fontFamily: "var(--display-condensed)", fontWeight: 600, fontSize: 18,
-                  color: "var(--text-primary)", textTransform: "uppercase",
-                  letterSpacing: "0.01em", lineHeight: 1,
-                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                }}>{t.name}</span>
-              </div>
-            ))}
-          </div>
-
-          <div style={{
-            display: "flex", flexWrap: "wrap", gap: "4px 10px",
-            marginTop: 12, fontSize: 11, color: "var(--text-muted)",
-          }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 3, fontWeight: 600, color: "var(--text-secondary)" }}>
-              <CalIcon size={11}/> {formatDate(adj.date)} · {adj.time}
-            </span>
-            <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-              <MapPin size={11}/> {countryFlag ? `${countryFlag} ` : ""}{match.city}
-            </span>
-          </div>
+      {/* Body: teams */}
+      <div style={{ display: "flex", padding: "16px 14px 12px", gap: 10, alignItems: "center" }}>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+          {[{ name: match.home, flag: homeFlag }, { name: match.away, flag: awayFlag }].map((t, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 26, lineHeight: 1, flexShrink: 0 }}>{t.flag || "🏳️"}</span>
+              <span style={{
+                fontFamily: "var(--display)", fontWeight: 400, fontSize: 22,
+                color: "var(--text-primary)", textTransform: "uppercase",
+                letterSpacing: "0.01em", lineHeight: 1,
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              }}>{t.name}</span>
+            </div>
+          ))}
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0, alignItems: "center" }}>
@@ -195,8 +196,7 @@ function MatchCard({ match, starred, onToggle, onAddCalendar, tzOffset }) {
             onClick={() => onToggle(match.id)}
             style={{
               background: "none", border: "none", cursor: "pointer",
-              padding: 6, borderRadius: 8,
-              color: starred ? accent : "var(--text-muted)",
+              padding: 8, color: starred ? accent : "var(--text-muted)",
               transition: "all 0.15s ease",
             }}
             aria-label={starred ? "Quitar de favoritos" : "Marcar como favorito"}
@@ -207,7 +207,7 @@ function MatchCard({ match, starred, onToggle, onAddCalendar, tzOffset }) {
             onClick={() => onAddCalendar(match)}
             style={{
               background: "none", border: "none", cursor: "pointer",
-              padding: 6, borderRadius: 8, color: "var(--text-muted)",
+              padding: 8, color: "var(--text-muted)",
               transition: "all 0.15s ease",
             }}
             aria-label="Agregar al calendario"
@@ -216,6 +216,18 @@ function MatchCard({ match, starred, onToggle, onAddCalendar, tzOffset }) {
             <Plus size={18} stroke={2}/>
           </button>
         </div>
+      </div>
+
+      {/* Bottom: venue */}
+      <div style={{
+        padding: "8px 14px 10px",
+        borderTop: "1px dashed var(--border)",
+        display: "flex", alignItems: "center", gap: 5,
+        fontFamily: "var(--mono)", fontSize: 10,
+        color: "var(--text-muted)", letterSpacing: "0.04em",
+      }}>
+        <MapPin size={10}/>
+        {countryFlag ? `${countryFlag} ` : ""}{match.venue} · {match.city}
       </div>
     </div>
   );
@@ -778,51 +790,9 @@ function WorldCupDashboard() {
   });
   const [showTop, setShowTop] = useState(false);
 
-  // Onboarding + theme + bracket
+  // Optional theme + champion (no onboarding overlay anymore)
   const [myTeam, setMyTeam] = useState(() => localStorage.getItem("wc2026_myTeam") || null);
   const [myChampion, setMyChampion] = useState(() => localStorage.getItem("wc2026_champion") || null);
-  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem("wc2026_onboarded"));
-  const [bracketPicks, setBracketPicksState] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("wc2026_bracket") || "{}"); }
-    catch { return {}; }
-  });
-  const setBracketPicks = useCallback((updater) => {
-    setBracketPicksState((prev) => typeof updater === "function" ? updater(prev) : updater);
-  }, []);
-
-  const completeOnboarding = useCallback(({ team, champion }) => {
-    if (team) {
-      setMyTeam(team);
-      localStorage.setItem("wc2026_myTeam", team);
-      // Auto-star all matches involving this team
-      const teamMatchIds = MATCHES.filter((m) => m.home === team || m.away === team).map(m => m.id);
-      setStarred((prev) => {
-        const next = new Set(prev);
-        teamMatchIds.forEach(id => next.add(id));
-        try { localStorage.setItem("wc2026_starred", JSON.stringify([...next])); } catch {}
-        return next;
-      });
-    }
-    if (champion) {
-      setMyChampion(champion);
-      localStorage.setItem("wc2026_champion", champion);
-      // Pre-fill the final pick with champion (best effort)
-      setBracketPicks((p) => {
-        const next = { ...p, 104: champion };
-        try { localStorage.setItem("wc2026_bracket", JSON.stringify(next)); } catch {}
-        return next;
-      });
-    }
-    localStorage.setItem("wc2026_onboarded", "true");
-    setShowOnboarding(false);
-  }, []);
-
-  const skipOnboarding = useCallback(() => {
-    localStorage.setItem("wc2026_onboarded", "true");
-    setShowOnboarding(false);
-  }, []);
-
-  // Theme accent based on user's team
   const themeAccent = myTeam ? TEAM_COLORS[myTeam] : null;
 
   useEffect(() => {
@@ -868,7 +838,7 @@ function WorldCupDashboard() {
 
   // Sectioned by group (default) or by date
   const sections = useMemo(() => {
-    if (groupBy === "calendar" || groupBy === "bracket") return [];
+    if (groupBy === "calendar") return [];
     if (groupBy === "date") {
       const map = new Map();
       filtered.forEach((m) => {
@@ -960,78 +930,128 @@ function WorldCupDashboard() {
           }
         `}</style>
       )}
-      {showOnboarding && (
-        <Onboarding onComplete={completeOnboarding} onSkip={skipOnboarding}/>
-      )}
     <div className={themeAccent ? "app-themed" : ""} style={{
       background: "var(--bg)", color: "var(--text-primary)",
       minHeight: "100vh", maxWidth: 520, margin: "0 auto",
       padding: "0 16px 80px",
     }}>
-      {/* Header / Hero */}
+      {/* Header / Hero — bold editorial */}
       <header style={{
         position: "relative",
         margin: "0 -16px 16px",
-        padding: "0 0 24px",
-        background: "var(--bg-elev)",
-        color: "var(--text-primary)",
-        borderBottom: "1px solid var(--border)",
+        background: "var(--text-primary)",
+        color: "var(--bg-elev)",
+        overflow: "hidden",
       }}>
-        {/* 12-color stripe representing groups */}
-        <div style={{ display: "flex", height: 6 }}>
-          {GROUPS.map((g) => (
-            <div key={g} style={{ flex: 1, background: GROUP_COLORS[g] }}/>
-          ))}
+        {/* Eyebrow */}
+        <div style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: "10px 16px",
+          borderBottom: "1px solid rgba(255,255,255,0.12)",
+          fontFamily: "var(--mono)", fontSize: 9, fontWeight: 500,
+          color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: "0.18em",
+        }}>
+          <span>FIFA · Ed. 23</span>
+          <span>🇺🇸 · 🇲🇽 · 🇨🇦</span>
         </div>
-        <div style={{ padding: "28px 16px 0" }}>
+
+        {/* Title block */}
+        <div style={{ padding: "30px 16px 0", position: "relative" }}>
           <div style={{
-            display: "flex", alignItems: "center", gap: 8, marginBottom: 14,
-          }}>
-            <span style={{ width: 8, height: 8, background: "var(--accent)", borderRadius: "50%" }}/>
-            <span style={{
-              fontFamily: "var(--display-condensed)", fontSize: 11, fontWeight: 600,
-              letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-secondary)",
-            }}>FIFA World Cup 26™</span>
-          </div>
+            fontFamily: "var(--mono)", fontSize: 10, fontWeight: 500,
+            color: "var(--accent)", letterSpacing: "0.2em", textTransform: "uppercase",
+            marginBottom: 8,
+          }}>★ Calendario · Agenda tus partidos favoritos</div>
           <h1 style={{
-            fontFamily: "var(--display)", fontSize: 84, fontWeight: 400,
+            fontFamily: "var(--display)", fontSize: 56, fontWeight: 400,
             lineHeight: 0.86, letterSpacing: "0.005em",
-            color: "var(--text-primary)",
-            textTransform: "uppercase",
+            color: "var(--bg-elev)", textTransform: "uppercase",
+            marginBottom: 0,
+          }}>Mundial</h1>
+
+          {/* Huge 26 with overlap */}
+          <div style={{
+            position: "relative",
+            marginTop: -10,
+            marginLeft: -8,
+            marginRight: -8,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}>
-            Mundial<br/>
-            <span style={{ display: "inline-flex", alignItems: "baseline", gap: 12 }}>
-              <span>26</span>
-              <span style={{
-                fontFamily: "var(--display-condensed)", fontWeight: 700,
-                fontSize: 13, color: "var(--text-muted)",
-                letterSpacing: "0.14em", alignSelf: "flex-end", marginBottom: 12,
-              }}>104 PARTIDOS<br/>48 SELECCIONES</span>
-            </span>
-          </h1>
-          <p style={{
-            fontFamily: "var(--display-condensed)", fontSize: 13,
-            letterSpacing: "0.1em", textTransform: "uppercase",
-            color: "var(--text-secondary)", marginTop: 18,
-            display: "flex", flexWrap: "wrap", gap: "4px 14px",
+            <div style={{
+              fontFamily: "var(--display)",
+              fontSize: "clamp(110px, 36vw, 200px)",
+              lineHeight: 0.78,
+              color: "var(--bg-elev)",
+              letterSpacing: "-0.03em",
+              fontWeight: 400,
+              position: "relative",
+              zIndex: 1,
+              textShadow: `4px 4px 0 ${themeAccent || "var(--accent)"}`,
+            }}>2026</div>
+          </div>
+
+          {/* Date stripe */}
+          <div style={{
+            marginTop: 8,
+            padding: "12px 0",
+            borderTop: "1px solid rgba(255,255,255,0.12)",
+            borderBottom: "1px solid rgba(255,255,255,0.12)",
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 12,
+            fontFamily: "var(--mono)", fontSize: 11, fontWeight: 500,
+            color: "rgba(255,255,255,0.85)", letterSpacing: "0.08em",
           }}>
-            <span>🇺🇸 EE.UU.</span>
-            <span>🇲🇽 México</span>
-            <span>🇨🇦 Canadá</span>
-            <span style={{ color: "var(--text-muted)" }}>· 11 Jun → 19 Jul</span>
-          </p>
+            <div>
+              <div style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.16em" }}>Inicio</div>
+              <div>11.06.26 · CDMX</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.16em" }}>Final</div>
+              <div>19.07.26 · NJ</div>
+            </div>
+          </div>
+
+          {(() => {
+            const start = new Date(Date.UTC(2026, 5, 11, 19, 0));
+            const diff = start.getTime() - Date.now();
+            if (diff < 0) return null;
+            const days = Math.floor(diff / (1000*60*60*24));
+            return (
+              <div style={{
+                padding: "14px 0",
+                display: "flex", alignItems: "baseline", gap: 10,
+              }}>
+                <span style={{
+                  fontFamily: "var(--mono)", fontSize: 10, fontWeight: 500,
+                  color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.16em",
+                }}>Arranca en</span>
+                <span style={{
+                  fontFamily: "var(--display)", fontSize: 36, lineHeight: 1,
+                  color: themeAccent || "var(--accent)",
+                }}>{days}</span>
+                <span style={{
+                  fontFamily: "var(--mono)", fontSize: 11, fontWeight: 700,
+                  color: "var(--bg-elev)", textTransform: "uppercase", letterSpacing: "0.14em",
+                }}>{days === 1 ? "día" : "días"}</span>
+              </div>
+            );
+          })()}
+
           {subscribeURL && (
             <a href={subscribeURL}
               style={{
                 display: "inline-flex", alignItems: "center", gap: 8,
-                marginTop: 20, padding: "12px 16px",
-                background: "var(--text-primary)", color: "var(--bg)",
+                marginBottom: 22, padding: "11px 16px",
+                background: themeAccent || "var(--accent)", color: "var(--bg-elev)",
                 border: "none",
-                fontFamily: "var(--display-condensed)", fontSize: 12,
-                fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
+                fontFamily: "var(--mono)", fontSize: 11,
+                fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
                 textDecoration: "none", cursor: "pointer",
               }}>
-              <Rss size={14}/> Suscribir el calendario completo
+              <Rss size={13}/> Suscribir 104 partidos
             </a>
           )}
         </div>
@@ -1049,7 +1069,6 @@ function WorldCupDashboard() {
           { id: "group", label: "Grupos", Ico: LayoutGrid },
           { id: "date", label: "Fechas", Ico: CalIcon },
           { id: "calendar", label: "Mes", Ico: CalGrid },
-          { id: "bracket", label: "Bracket", Ico: Trophy },
         ].map(({ id, label, Ico }) => (
           <button key={id} onClick={() => setGroupBy(id)}
             style={{
@@ -1224,9 +1243,7 @@ function WorldCupDashboard() {
       </div>
 
       {/* Sections */}
-      {groupBy === "bracket" ? (
-        <BracketView picks={bracketPicks} setPicks={setBracketPicks} myChampion={myChampion}/>
-      ) : groupBy === "calendar" ? (
+      {groupBy === "calendar" ? (
         <CalendarView matches={filtered} starred={starred} tzOffset={tzOffset} onAddCalendar={setAddingMatch} onToggle={toggleStar}/>
       ) : sections.length === 0 ? (
         <div style={{ textAlign: "center", padding: "48px 20px", color: "var(--text-muted)", fontSize: 14 }}>
@@ -1252,53 +1269,78 @@ function WorldCupDashboard() {
                 style={{
                   width: "100%", background: "var(--card-bg)",
                   border: "1px solid var(--border)",
-                  borderLeft: `6px solid ${secColor}`,
-                  padding: "14px 14px",
-                  display: "flex", alignItems: "center", gap: 12,
+                  padding: 0,
+                  display: "flex", alignItems: "stretch",
                   cursor: isCollapsible ? "pointer" : "default",
                   textAlign: "left", color: "inherit",
                   fontFamily: "inherit",
                 }}>
                 {isGroupSec && (
                   <div style={{
-                    width: 48, height: 48, flexShrink: 0,
+                    width: 78, flexShrink: 0,
                     background: secColor, color: "#fff",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontFamily: "var(--display)", fontSize: 36, lineHeight: 1,
-                  }}>{letter}</div>
+                    display: "flex", flexDirection: "column",
+                    alignItems: "center", justifyContent: "center",
+                    padding: "8px 0",
+                  }}>
+                    <div style={{
+                      fontFamily: "var(--mono)", fontSize: 9, fontWeight: 500,
+                      letterSpacing: "0.18em", opacity: 0.85, textTransform: "uppercase",
+                    }}>Grupo</div>
+                    <div style={{
+                      fontFamily: "var(--display)", fontSize: 48, lineHeight: 0.9,
+                      letterSpacing: "0.005em", marginTop: 2,
+                    }}>{letter}</div>
+                  </div>
                 )}
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ flex: 1, minWidth: 0, padding: "14px 14px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                  {!isGroupSec && (
+                    <div style={{
+                      fontFamily: "var(--mono)", fontSize: 9, fontWeight: 700,
+                      color: secColor, textTransform: "uppercase", letterSpacing: "0.14em",
+                      marginBottom: 6,
+                    }}>FASE FINAL</div>
+                  )}
                   <div style={{
                     fontFamily: "var(--display)", fontSize: 22, lineHeight: 1,
                     textTransform: "uppercase", letterSpacing: "0.01em",
                     color: "var(--text-primary)",
                   }}>{section.title}</div>
                   {isGroupSec ? (
-                    <div style={{ display: "flex", gap: 8, marginTop: 8, fontSize: 18, lineHeight: 1, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 7, marginTop: 8, fontSize: 18, lineHeight: 1, flexWrap: "wrap" }}>
                       {teams.map((t, i) => <span key={i} title={t}>{FLAG_MAP[t] || "🏳️"}</span>)}
                     </div>
                   ) : (
                     <div style={{
-                      fontFamily: "var(--display-condensed)", fontSize: 11, fontWeight: 600,
-                      color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4,
+                      fontFamily: "var(--mono)", fontSize: 10, fontWeight: 500,
+                      color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 6,
                     }}>{section.subtitle}</div>
                   )}
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+                <div style={{
+                  display: "flex", flexDirection: "column", alignItems: "flex-end",
+                  justifyContent: "center", gap: 6, flexShrink: 0,
+                  padding: "0 14px",
+                  borderLeft: "1px solid var(--border)",
+                }}>
                   <span style={{
-                    fontFamily: "var(--display-condensed)", fontSize: 11, fontWeight: 700,
-                    color: secColor, textTransform: "uppercase", letterSpacing: "0.06em",
-                  }}>{section.items.length} part.</span>
+                    fontFamily: "var(--mono)", fontSize: 11, fontWeight: 700,
+                    color: "var(--text-primary)", letterSpacing: "0.04em",
+                  }}>{String(section.items.length).padStart(2,"0")}</span>
+                  <span style={{
+                    fontFamily: "var(--mono)", fontSize: 8, fontWeight: 500,
+                    color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.12em",
+                  }}>partidos</span>
                   {favs > 0 && (
                     <span style={{
-                      fontFamily: "var(--display-condensed)", fontSize: 10, fontWeight: 600,
-                      color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.06em",
-                      display: "flex", alignItems: "center", gap: 3,
-                    }}><Star size={10} fill="currentColor" stroke={2}/> {favs}</span>
+                      fontFamily: "var(--mono)", fontSize: 9, fontWeight: 700,
+                      color: secColor, textTransform: "uppercase", letterSpacing: "0.08em",
+                      display: "flex", alignItems: "center", gap: 3, marginTop: 2,
+                    }}><Star size={9} fill="currentColor" stroke={2}/> {favs}</span>
                   )}
                   {isCollapsible && (expanded
-                    ? <ChevronUp size={16} style={{ color: "var(--text-muted)" }}/>
-                    : <ChevronDown size={16} style={{ color: "var(--text-muted)" }}/>)}
+                    ? <ChevronUp size={14} style={{ color: "var(--text-muted)", marginTop: 2 }}/>
+                    : <ChevronDown size={14} style={{ color: "var(--text-muted)", marginTop: 2 }}/>)}
                 </div>
               </button>
               {expanded && (
